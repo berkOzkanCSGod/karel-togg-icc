@@ -1,7 +1,3 @@
-//
-// Created by attut on 15-Jul-23.
-//
-
 #include "Util.h"
 
 Util::Util(){
@@ -94,7 +90,6 @@ void Util::findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std:
     }
 
 }
-
 void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
 
     cv::Mat patternMatchedImg;
@@ -139,7 +134,6 @@ void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
 
 
 }
-
 void Util::findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closestPoint) {
 
     float minDist = -1;
@@ -166,7 +160,6 @@ void Util::findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closes
     closestPoint.x+=32;
     closestPoint.y+=30;
 }
-
 void Util::findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv::Point>& POIs) {
 
     std::vector<cv::Point> allPoints;
@@ -183,7 +176,7 @@ void Util::findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv:
         currentPoint.x += 32;
         currentPoint.y += 30;
         allPoints.push_back(currentPoint);
-        std::cout << "X: " << currentPoint.x << " Y: " << currentPoint.y << std::endl;
+//        std::cout << "X: " << currentPoint.x << " Y: " << currentPoint.y << std::endl;
     }
 
     std::sort(allPoints.begin(), allPoints.end(), [&](const cv::Point& p1, const cv::Point& p2) {
@@ -198,8 +191,160 @@ void Util::findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv:
 
 }
 
+void Util::findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<std::vector<cv::Rect>>& ROIs){
+    int ROIwidth = 10;
+    int ROIheight = 20;
+    float startX, startY; //initial point to start searching
+    int offset = 30; //offset from startX and Y because we want to look for line and not center figure
+    bool boundHit;
+    std::vector<cv::Rect> tempRectList;
+    cv::Mat convertedImg;
+    cv::Mat maskImg;
 
 
+    if (image.channels() > 1){
+        cv::cvtColor(image, convertedImg, CV_8UC1);
+    } else {
+        convertedImg = image;
+    }
+
+    for(auto POI : POIs){
+        for (int directionIndex = 0; directionIndex < 4; directionIndex++) {
+            startX = POI.x;
+            startY = POI.y;
+            boundHit = false;
+            cv::Rect tempRect(0,0, ROIwidth, ROIheight);
+            switch (directionIndex) {
+                case 0: //right
+                    findRightROI(image, cv::Point(startX + offset, startY), tempRect);
+                    break;
+                case 1: //left
+                    findLeftROI(image, cv::Point(startX - offset, startY), tempRect);
+                    break;
+                case 2: //top
+                    findTopROI(image, cv::Point(startX, startY - offset), tempRect);
+                    break;
+                case 3: //bottom
+                    findBottomROI(image, cv::Point(startX, startY + offset), tempRect);
+                    break;
+                default:
+                    std::cout << "ERROR WHILE LOOKING FOR BOUNDS!!!!!\n";
+                    boundHit = true;
+                    break;
+            }
+            tempRect.x -= ROIwidth/2;
+            tempRect.y -= ROIheight/2;
+            tempRectList.push_back(tempRect);
+        }
+        ROIs.push_back(tempRectList);
+        tempRectList.clear();
+    }
+}
+
+void Util::findRightROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
+    bool boundHit = false;
+    cv::Point initial(start);
+    cv::Mat binaryImg;
+
+    cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
+    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
+
+    while(!boundHit){
+
+        if (binaryImg.at<uchar>(start.y, start.x) != 0){
+            boundHit = true;
+            break;
+        } else {
+            start.x += 1;
+        }
+
+        if (start.x > image.cols){
+            !boundHit;
+            break;
+        }
+    }
+
+    ROI.x = start.x;
+    ROI.y = start.y;
+}
+void Util::findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
+    bool boundHit = false;
+    cv::Point initial(start);
+    cv::Mat binaryImg;
+
+    cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
+    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
+
+    while(!boundHit){
+
+        if (binaryImg.at<uchar>(start.y, start.x) != 0){
+            boundHit = true;
+            break;
+        } else {
+            start.y -= 1;
+        }
+
+        if (start.y < 0){
+            !boundHit;
+            break;
+        }
+    }
+
+    ROI.x = start.x;
+    ROI.y = start.y;
+}
+void Util::findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
+    bool boundHit = false;
+    cv::Point initial(start);
+    cv::Mat binaryImg;
+
+    cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
+    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
+
+    while(!boundHit){
+
+        if (binaryImg.at<uchar>(start.y, start.x) != 0){
+            boundHit = true;
+            break;
+        } else {
+            start.x -= 1;
+        }
+
+        if (start.x < 0){
+            !boundHit;
+            break;
+        }
+    }
+
+    ROI.x = start.x;
+    ROI.y = start.y;
+}
+void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
+    bool boundHit = false;
+    cv::Point initial(start);
+    cv::Mat binaryImg;
+
+    cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
+    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
+
+    while(!boundHit){
+
+        if (binaryImg.at<uchar>(start.y, start.x) != 0){
+            boundHit = true;
+            break;
+        } else {
+            start.y += 1;
+        }
+
+        if (start.y > image.rows){
+            !boundHit;
+            break;
+        }
+    }
+
+    ROI.x = start.x;
+    ROI.y = start.y;
+}
 
 
 
