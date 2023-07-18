@@ -346,6 +346,42 @@ void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     ROI.y = start.y;
 }
 
+void Util::deriveETF(std::vector<float>& coeff){
+    for (int i = 0; i < coeff.size(); ++i) {
+        coeff[i]*= i;
+    }
+    std::rotate(coeff.begin(), coeff.begin()+1, coeff.end());
+    coeff.resize(coeff.size() - 1);
+}
 
+void Util::polynomialFFT(std::vector<float>& polynomial){
+    std::vector<std::complex<double>> coeff(polynomial.size());
+    for (int i = 0; i < polynomial.size(); ++i) {
+        coeff[i] = polynomial[i];
+    }
 
+    fft(coeff);
+}
+void Util::fft(std::vector<std::complex<double>>& values) {
+    const size_t N = values.size();
+    if (N <= 1) {
+        return;
+    }
+
+    std::vector<std::complex<double>> even(N / 2);
+    std::vector<std::complex<double>> odd(N / 2);
+    for (size_t i = 0; i < N / 2; ++i) {
+        even[i] = values[2 * i];
+        odd[i] = values[2 * i + 1];
+    }
+
+    fft(even);
+    fft(odd);
+
+    for (size_t k = 0; k < N / 2; ++k) {
+        std::complex<double> t = std::polar(1.0, -2 * std::acos(-1.0) * k / N) * odd[k];
+        values[k] = even[k] + t;
+        values[k + N / 2] = even[k] - t;
+    }
+}
 

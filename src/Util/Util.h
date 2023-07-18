@@ -16,8 +16,10 @@
 #include <numeric>
 #include <vector>
 #include <algorithm>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
+#include <complex>
+#include <numbers>
 
 class Util {
 public:
@@ -50,6 +52,13 @@ private:
     void findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
     void findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
     void findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
+public:
+    //finding coefficients of the ETF
+    void deriveETF(std::vector<float>& coeff);
+    //polynomial FFT
+    void polynomialFFT(std::vector<float>& polynomial);
+    void fft(std::vector<std::complex<double>>& values);
+
 };
 
 
