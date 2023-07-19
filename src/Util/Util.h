@@ -23,6 +23,10 @@
 
 class Util {
 public:
+    constexpr static const double k_red =  0.2125;
+    constexpr static const double k_green =  0.7154;
+    constexpr static const double k_blue = 0.0721;
+
     cv::Mat globalImage;
 
     Util();
@@ -34,6 +38,12 @@ public:
     void findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs);
     //finds all ROI from POIs
     void findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<std::vector<cv::Rect>>& ROIs);
+
+    void split_channels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum);
+
+    void sobel_operator(const cv::Mat &src, cv::Mat &dst);
+
+    void esf(cv::Mat &roi_src, cv::Mat &roi_edge, std::vector<cv::Point_<double>> &points_vector);
 
 private:
 
