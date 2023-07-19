@@ -346,6 +346,80 @@ void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     ROI.y = start.y;
 }
 
+void Util::split_channels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum) {
+    cv::Mat channels[3];
+    split(src, channels);
+    blue = channels[0];
+    green = channels[1];
+    red = channels[2];
+    lum = k_red * red + k_green * green + k_blue * blue;
+}
 
+// dst is in HSV colour format
+void Util::sobel_operator(const cv::Mat &src, cv::Mat &dst) {
+    cv::Mat kernelH, kernelV, resH, resV;
+    kernelV = (cv::Mat_<int>(3,3) << -1, -2, -1, 0, 0, 0, 1, 2, 1);
+    transpose(kernelV, kernelH);
+
+    filter2D(src, resH, CV_64F, kernelH);
+    filter2D(src, resV, CV_64F, kernelV);
+    magnitude(resH, resV, dst);
+    normalize(dst, dst, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+    cv::Mat dir = cv::Mat(dst.size(), CV_64FC1);
+    for (int i = 0; i < dst.rows; ++i) {
+        for (int j = 0; j < dst.cols; ++j) {
+            dir.at<double>(i, j) = atan2(resV.at<double>(i, j), resH.at<double>(i, j));
+        }
+    }
+    normalize(dir, dir, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    std::vector<cv::Mat> channels(3);
+    channels[0] = dir;
+    channels[1] = cv::Mat(dst.size(), CV_8UC1, cv::Scalar(255));
+    channels[2] = dst;
+    merge(channels, dst);
+}
+
+// roi_src is expected to be grayscale
+// roi_edge is expected to be HSV. H represents the edge angel, S is constant and V represents edge amplitude
+void Util::esf(cv::Mat &roi_src, cv::Mat &roi_edge, std::vector<cv::Point_<double>> &points_vector) {
+
+    if (roi_edge.type() != CV_8UC3) {
+        std::cout << "Invalid ROI Matrix type!" << std::endl;
+        return;
+    }
+
+    std::vector<cv::Mat> channels;
+
+    split(roi_edge, channels);
+
+    cv::Mat roi_thresh;
+    threshold(channels[2], roi_thresh, 120, 255, cv::THRESH_TOZERO);
+
+    double m_sum = 0;
+    double m_count = 0;
+    for (int i = 0; i < roi_thresh.rows; ++i) {
+        for (int j = 0; j < roi_thresh.cols; ++j) {
+            if (roi_thresh.at<uchar>(i, j) != 0) {
+                m_count++;
+                m_sum += channels[0].at<uchar>(i, j);
+            }
+        }
+    }
+    double m_ave = m_sum / m_count;
+
+    std::unordered_map<double, double> points_map;
+    for (int i = 0; i < roi_thresh.rows; i++) {
+        for (int j = 0; j < roi_thresh.cols; j++) {
+            double x = (double) i - ((double) j/m_ave);
+            if (points_map.find(x) == points_map.end()) {
+                points_map[x] = roi_src.at<uchar>(i, j);
+            }
+        }
+    }
+    for (auto pt: points_map) {
+        points_vector.emplace_back(pt.first, pt.second);
+    }
+}
 
 
