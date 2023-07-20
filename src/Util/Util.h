@@ -19,14 +19,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <complex>
-#include <numbers>
 
 class Util {
 public:
     constexpr static const double k_red =  0.2125;
     constexpr static const double k_green =  0.7154;
     constexpr static const double k_blue = 0.0721;
-
+    constexpr static const double pi = 3.14159265358979323846;
     cv::Mat globalImage;
 
     Util();
@@ -39,10 +38,8 @@ public:
     //finds all ROI from POIs
     void findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<std::vector<cv::Rect>>& ROIs);
 
-    void split_channels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum);
-
-    void sobel_operator(const cv::Mat &src, cv::Mat &dst);
-
+    void splitChannels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum);
+    void sobelOperator(const cv::Mat &src, cv::Mat &destination);
     void esf(cv::Mat &roi_src, cv::Mat &roi_edge, std::vector<cv::Point_<double>> &points_vector);
 
 private:
@@ -68,6 +65,32 @@ public:
     //polynomial FFT
     void polynomialFFT(std::vector<float>& polynomial);
     void fft(std::vector<std::complex<double>>& values);
+
+
+
+
+    std::string type2str(int type) {
+        std::string r;
+
+        uchar depth = type & CV_MAT_DEPTH_MASK;
+        uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+        switch ( depth ) {
+            case CV_8U:  r = "8U"; break;
+            case CV_8S:  r = "8S"; break;
+            case CV_16U: r = "16U"; break;
+            case CV_16S: r = "16S"; break;
+            case CV_32S: r = "32S"; break;
+            case CV_32F: r = "32F"; break;
+            case CV_64F: r = "64F"; break;
+            default:     r = "User"; break;
+        }
+
+        r += "C";
+        r += (chans+'0');
+
+        return r;
+    }
 
 };
 

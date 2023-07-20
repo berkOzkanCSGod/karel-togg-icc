@@ -1,5 +1,6 @@
 #include "Util.h"
 
+
 Util::Util(){
 
 }
@@ -8,20 +9,21 @@ Util::Util(cv::Mat& image){
     globalImage = image;
 }
 
+//takes in a sobel image. If input it hsv channel #2 can be sent
 void Util::findBounds(cv::Mat image, std::vector<cv::Point>& topCurve, std::vector<cv::Point>& bottomCurve){
 
-    cv::Mat gaussianBlueImage;
+    cv::Mat gaussianBlurImage;
     cv::Mat thresholdImage;
     cv::Mat hsvImg;
     std::vector<cv::Point> topCurveSamplePoints;
     std::vector<cv::Point> bottomCurveSamplePoints;
 
-    cv::GaussianBlur(image,gaussianBlueImage,cv::Size(9,3), 1, 0);
-    cv::threshold(gaussianBlueImage, thresholdImage, 120, 255, cv::THRESH_BINARY);
-    cv::cvtColor(thresholdImage, hsvImg, cv::COLOR_BGR2HSV);
+    cv::GaussianBlur(image,gaussianBlurImage,cv::Size(9,3), 1, 0);
+    cv::threshold(gaussianBlurImage, thresholdImage, 120, 255, cv::THRESH_BINARY);
+//    cv::cvtColor(thresholdImage, hsvImg, cv::COLOR_BGR2HSV);
     
-    std::thread checkingTop(&Util::findTopCurveSamplePoint, this, hsvImg, std::ref(topCurveSamplePoints));
-    std::thread checkingBottom(&Util::findBottomCurveSamplePoint, this, hsvImg, std::ref(bottomCurveSamplePoints));
+    std::thread checkingTop(&Util::findTopCurveSamplePoint, this, thresholdImage, std::ref(topCurveSamplePoints));
+    std::thread checkingBottom(&Util::findBottomCurveSamplePoint, this, thresholdImage, std::ref(bottomCurveSamplePoints));
     checkingBottom.join();
     checkingTop.join();
 
@@ -29,35 +31,38 @@ void Util::findBounds(cv::Mat image, std::vector<cv::Point>& topCurve, std::vect
     findSystemOfEquations(bottomCurveSamplePoints, bottomCurve, image.cols);
 
 }
+//takes in thresh binary image
 void Util::findTopCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsTop){
     for (int x = 0; x < image.cols; x += 55) {
         for (int y = 0; y < image.rows/5; y += 1) {
-            cv::Vec3b pixel = image.at<cv::Vec3b>(y,x);
-            uchar v = pixel[2];
+            uchar pixel = image.at<uchar>(y,x);
+//            uchar v = pixel[2];
 //            uchar h = pixel[0];
 //            uchar s = pixel[1];
-            if (v != 0) {
+            if (pixel != 0) {
                 samplePointsTop.push_back(cv::Point(x,y));
                 break;
             }
         }
     }
 }
+//takes in thresh binary image
 void Util::findBottomCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsBottom){
     for (int x = 0; x < image.cols; x += 35) {
         for (int y = image.rows-1; y > image.rows-image.rows/5; y -= 1) {
             cv::Scalar color;
-            cv::Vec3b pixel = image.at<cv::Vec3b>(y,x);
-            uchar v = pixel[2];
+            uchar pixel = image.at<uchar>(y,x);
+//            uchar v = pixel[2];
 //            uchar h = pixel[0];
 //            uchar s = pixel[1];
-            if (v != 0) {
+            if (pixel != 0) {
                 samplePointsBottom.push_back(cv::Point(x,y));
                 break;
             }
         }
     }
 }
+//takes in two vectors of points
 void Util::findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int width){
 
     int n = curveSamplePoints.size();
@@ -90,8 +95,9 @@ void Util::findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std:
     }
 
 }
-void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
 
+//takes in a sobel image (black and white)
+void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
     cv::Mat patternMatchedImg;
     cv::Mat thresholdImg;
     cv::Mat scaledImg;
@@ -102,14 +108,20 @@ void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
 
     cv::Point boundsMidpoint;
     cv::Point centerOfChart;
-    cv::Mat target = cv::imread("Resources\\sobelTarget.jpg");
+    cv::Mat target = cv::imread("Resources\\sobelTarget.jpg", cv::IMREAD_GRAYSCALE);
+    //maybe get target some other way (improvement)
 
+    image.convertTo(image, CV_8U);
+
+    cv::Mat blur;
     cv::matchTemplate(image, target, patternMatchedImg, cv::TM_SQDIFF_NORMED);
-    cv::threshold(patternMatchedImg, thresholdImg, 0.99, 1, cv::THRESH_BINARY);
 
-    scaledImg = patternMatchedImg * 255;
+    cv::threshold(patternMatchedImg, thresholdImg, 0.9999, 1, cv::THRESH_BINARY);
+    cv::GaussianBlur(thresholdImg,blur,cv::Size(9,9),0,0);
+    cv::threshold(blur, thresholdImg, 0.9, 1, cv::THRESH_BINARY);
+
+    scaledImg = thresholdImg * 255;
     scaledImg.convertTo(scaledImg, CV_8U);
-
     cv::bitwise_not(scaledImg, invertedImg);
 
     numOfComponents = cv::connectedComponentsWithStats(invertedImg, labels, stats, centroids);
@@ -132,8 +144,19 @@ void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
 
     findCorners(stats, centerOfChart, POIs);
 
+//    cv::cvtColor(thresholdImg, thresholdImg, cv::COLOR_GRAY2BGR);
+//
+//    for(int i = 1; i < numOfComponents; i++)
+//    {
+//        cv::Point center(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
+//        cv::circle(thresholdImg, center, 3, cv::Scalar(0, 0, 255), -1);
+//    }
+//    cv::imshow("final", thresholdImg);
+//    cv::waitKey(0);
+
 
 }
+//takes in a matrix of stats produced by "connectedComponentsWithStats" and center of chart
 void Util::findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closestPoint) {
 
     float minDist = -1;
@@ -188,15 +211,19 @@ void Util::findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv:
     for (int i = 0; i < 4; ++i) {
         POIs.push_back(allPoints[i]);
     }
-
+    for(auto& p : POIs){
+        cv::circle(globalImage, p, 10, cv::Scalar(12,100,50),1);
+    }
+//    cv::imshow("global", globalImage);
+//    cv::waitKey(0);
 }
 
+//takes in sobel image
 void Util::findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<std::vector<cv::Rect>>& ROIs){
     int ROIwidth = 10;
     int ROIheight = 20;
     float startX, startY; //initial point to start searching
     int offset = 30; //offset from startX and Y because we want to look for line and not center figure
-    bool boundHit;
     std::vector<cv::Rect> tempRectList;
     cv::Mat convertedImg;
     cv::Mat maskImg;
@@ -212,24 +239,22 @@ void Util::findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<
         for (int directionIndex = 0; directionIndex < 4; directionIndex++) {
             startX = POI.x;
             startY = POI.y;
-            boundHit = false;
             cv::Rect tempRect(0,0, ROIwidth, ROIheight);
             switch (directionIndex) {
                 case 0: //right
-                    findRightROI(image, cv::Point(startX + offset, startY), tempRect);
+                    findRightROI(convertedImg, cv::Point(startX + offset, startY), tempRect);
                     break;
                 case 1: //left
-                    findLeftROI(image, cv::Point(startX - offset, startY), tempRect);
+                    findLeftROI(convertedImg, cv::Point(startX - offset, startY), tempRect);
                     break;
                 case 2: //top
-                    findTopROI(image, cv::Point(startX, startY - offset), tempRect);
+                    findTopROI(convertedImg, cv::Point(startX, startY - offset), tempRect);
                     break;
                 case 3: //bottom
-                    findBottomROI(image, cv::Point(startX, startY + offset), tempRect);
+                    findBottomROI(convertedImg, cv::Point(startX, startY + offset), tempRect);
                     break;
                 default:
                     std::cout << "ERROR WHILE LOOKING FOR BOUNDS!!!!!\n";
-                    boundHit = true;
                     break;
             }
             tempRect.x -= ROIwidth/2;
@@ -240,14 +265,13 @@ void Util::findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<
         tempRectList.clear();
     }
 }
-
+//takes in sobel img
 void Util::findRightROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     bool boundHit = false;
     cv::Point initial(start);
     cv::Mat binaryImg;
 
     cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
-    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
 
     while(!boundHit){
 
@@ -273,7 +297,7 @@ void Util::findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     cv::Mat binaryImg;
 
     cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
-    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
+//    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
 
     while(!boundHit){
 
@@ -299,7 +323,7 @@ void Util::findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     cv::Mat binaryImg;
 
     cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
-    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
+//    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
 
     while(!boundHit){
 
@@ -325,7 +349,7 @@ void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     cv::Mat binaryImg;
 
     cv::threshold(image, binaryImg, 30,255,cv::THRESH_BINARY);
-    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
+//    cv::cvtColor(binaryImg, binaryImg, cv::COLOR_BGR2GRAY);
 
     while(!boundHit){
 
@@ -346,7 +370,10 @@ void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     ROI.y = start.y;
 }
 
-void Util::split_channels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum) {
+/*
+ * Performs channel splitting operation on a src image, and outputs the channels + lumination as image matrix.
+ */
+void Util::splitChannels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum) {
     cv::Mat channels[3];
     split(src, channels);
     blue = channels[0];
@@ -355,71 +382,119 @@ void Util::split_channels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::
     lum = k_red * red + k_green * green + k_blue * blue;
 }
 
-// dst is in HSV colour format
-void Util::sobel_operator(const cv::Mat &src, cv::Mat &dst) {
-    cv::Mat kernelH, kernelV, resH, resV;
-    kernelV = (cv::Mat_<int>(3,3) << -1, -2, -1, 0, 0, 0, 1, 2, 1);
-    transpose(kernelV, kernelH);
+/*
+ * Takes in a gray scale src image and outputs an hsv image (destination)
+ */
+void Util::sobelOperator(const cv::Mat &src, cv::Mat &destination) {
 
-    filter2D(src, resH, CV_64F, kernelH);
-    filter2D(src, resV, CV_64F, kernelV);
-    magnitude(resH, resV, dst);
-    normalize(dst, dst, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    //check if gray, if not make it gray
+    if (src.channels() != 1) {
+        cv::cvtColor(src, src, CV_8UC1);
+    }
 
-    cv::Mat dir = cv::Mat(dst.size(), CV_64FC1);
-    for (int i = 0; i < dst.rows; ++i) {
-        for (int j = 0; j < dst.cols; ++j) {
-            dir.at<double>(i, j) = atan2(resV.at<double>(i, j), resH.at<double>(i, j));
+    cv::Mat kernelHue, kernelVal, resHue, resVal;
+    cv::Mat direction;
+    std::vector<cv::Mat> channels(3);
+
+    kernelVal = (cv::Mat_<int>(3,3) << -1, -2, -1, 0, 0, 0, 1, 2, 1);
+    cv::transpose(kernelVal, kernelHue); //rotates kernelVal 90 deg and assigns it on to kernelHue.
+
+    cv::filter2D(src, resHue, CV_64F, kernelHue);
+    cv::filter2D(src, resVal, CV_64F, kernelVal);
+    cv::magnitude(resHue, resVal, destination); //calculates 2d vector magnitude
+
+    //destination is gray scale
+    cv::normalize(destination, destination, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+    direction = cv::Mat(destination.size(), CV_64FC1);
+    for (int i = 0; i < destination.rows; ++i) {
+        for (int j = 0; j < destination.cols; ++j) {
+            direction.at<double>(i, j) = atan2(resVal.at<double>(i, j), resHue.at<double>(i, j));
         }
     }
-    normalize(dir, dir, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-    std::vector<cv::Mat> channels(3);
-    channels[0] = dir;
-    channels[1] = cv::Mat(dst.size(), CV_8UC1, cv::Scalar(255));
-    channels[2] = dst;
-    merge(channels, dst);
+
+    //direction is gray scale
+    cv::normalize(direction, direction, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+    channels[0] = direction; //gray scale
+    channels[1] = cv::Mat(destination.size(), CV_8UC1, cv::Scalar(255)); //completely white grayscale
+    channels[2] = destination; //gray scale
+
+    cv::merge(channels, destination);
 }
 
 // roi_src is expected to be grayscale
 // roi_edge is expected to be HSV. H represents the edge angel, S is constant and V represents edge amplitude
-void Util::esf(cv::Mat &roi_src, cv::Mat &roi_edge, std::vector<cv::Point_<double>> &points_vector) {
+void Util::esf(cv::Mat &roiSrc, cv::Mat &roiEdge, std::vector<cv::Point_<double>> &pointsVector) {
+    std::vector<cv::Mat> channels;
+    cv::Mat roiHue;
+    cv::Mat roiVal;
+    cv::Mat threshROI;
+    std::vector<int> row1val;
+    std::vector<int> rowLastval;
+    double sum1, sum2, avg1, avg2, slope;
+    double x0,y0,x1,y1;
 
-    if (roi_edge.type() != CV_8UC3) {
+
+
+    if (roiEdge.type() != CV_8UC3) {
         std::cout << "Invalid ROI Matrix type!" << std::endl;
         return;
     }
 
-    std::vector<cv::Mat> channels;
 
-    split(roi_edge, channels);
+    split(roiEdge, channels);
+    roiHue = channels[0];
+    roiVal = channels[2];
+    cv::threshold(roiVal, threshROI, 100, 255, cv::THRESH_BINARY);
 
-    cv::Mat roi_thresh;
-    threshold(channels[2], roi_thresh, 120, 255, cv::THRESH_TOZERO);
-
-    double m_sum = 0;
-    double m_count = 0;
-    for (int i = 0; i < roi_thresh.rows; ++i) {
-        for (int j = 0; j < roi_thresh.cols; ++j) {
-            if (roi_thresh.at<uchar>(i, j) != 0) {
-                m_count++;
-                m_sum += channels[0].at<uchar>(i, j);
-            }
+    //first row
+    for (int i = 0; i < threshROI.cols; ++i) {
+        if (threshROI.at<uchar>(0,i) != 0){
+            row1val.push_back(i);
         }
     }
-    double m_ave = m_sum / m_count;
-
-    std::unordered_map<double, double> points_map;
-    for (int i = 0; i < roi_thresh.rows; i++) {
-        for (int j = 0; j < roi_thresh.cols; j++) {
-            double x = (double) i - ((double) j/m_ave);
-            if (points_map.find(x) == points_map.end()) {
-                points_map[x] = roi_src.at<uchar>(i, j);
-            }
+    sum1 = std::accumulate(row1val.begin(), row1val.end(), 0.0);
+    avg1 = sum1/(double)row1val.size();
+    //last row
+    for (int i = 0; i < threshROI.cols; ++i) {
+        if (threshROI.at<uchar>(threshROI.rows-1,i) != 0){
+            rowLastval.push_back(i);
         }
     }
-    for (auto pt: points_map) {
-        points_vector.emplace_back(pt.first, pt.second);
+    sum2 = std::accumulate(rowLastval.begin(), rowLastval.end(), 0.0);
+    avg2 = sum2/(double)rowLastval.size();
+
+
+    // based on:
+ //      y1-y0
+ // m = --------
+ //      x1-x0
+    x0 = avg1;
+    y0 = 0;
+    x1 = avg2;
+    y1 = threshROI.rows;
+    slope = (-(y0-y1))/(x0-x1); //negative because rows are counted downwards
+    for (int yA = 0; yA < roiHue.rows; yA++) {
+        for (int xA = 0; xA < roiHue.cols; xA++) {
+            double x = (double) xA - ((double) yA / atan(slope));
+                pointsVector.emplace_back(cv::Point_<double>(x, roiSrc.at<uchar>(yA, xA)));
+        }
     }
+
+//    std::unordered_map<double, double> points_map;
+//    for (int yA = 0; yA < roi_hue.rows; yA++) {
+//        for (int xA = 0; xA < roi_hue.cols; xA++) {
+//            double x = (double) xA - ((double) yA / atan(slope));
+//            if (pointsMap.find(x) == points_map.end()) {
+//                points_map[x] = roiSrc.at<uchar>(yA, xA);
+//            }
+//        }
+//    }
+
+//        for (auto pt: points_map) {
+//            pointsVector.emplace_back(pt.first, pt.second);
+//        }
+
 }
-
 
