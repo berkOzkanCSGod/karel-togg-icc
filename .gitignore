@@ -10,3 +10,8 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 main.cpp
+
+# folder produced by cmake after building the project
+cmake-build-debug
+# Jetbrains project folder
+.idea

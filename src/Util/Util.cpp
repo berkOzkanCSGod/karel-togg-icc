@@ -371,7 +371,7 @@ void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
 }
 
 /*
- * Performs channel splitting operation on a src image, and outputs the channels + lumination as image matrix.
+ * Performs channel splitting operation on a src image, and outputs the channels + luminance as image matrix.
  */
 void Util::splitChannels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum) {
     cv::Mat channels[3];
@@ -482,6 +482,9 @@ void Util::esf(cv::Mat &roiSrc, cv::Mat &roiEdge, std::vector<cv::Point_<double>
         }
     }
 
+    // sort the points according to x values to prepare for binning with a custom comparator
+    std::sort(pointsVector.begin(), pointsVector.end(), point_comparator());
+
 //    std::unordered_map<double, double> points_map;
 //    for (int yA = 0; yA < roi_hue.rows; yA++) {
 //        for (int xA = 0; xA < roi_hue.cols; xA++) {
@@ -495,6 +498,50 @@ void Util::esf(cv::Mat &roiSrc, cv::Mat &roiEdge, std::vector<cv::Point_<double>
 //        for (auto pt: points_map) {
 //            pointsVector.emplace_back(pt.first, pt.second);
 //        }
+
+}
+
+// performs point binning in O(N) time complexity. Each bin contains bin_interval points
+// bin values are calculated with arithmetical average of points in each bin
+void Util::performBinning(const std::vector<cv::Point_<double>> &all_points, std::vector<cv::Point_<double>> &binned_points,
+                     int bin_interval) {
+
+    // bin_interval is the number of consecutive points to be binned
+    assert(bin_interval > 1);
+
+    // clear binned_points if it contains data
+    if (!binned_points.empty()) {
+        binned_points.clear();
+    }
+
+    // group bins. If the last bin cannot have the desired size, skip it
+    for (int i = 0; i < all_points.size() - bin_interval; i+=bin_interval) {
+        double x_sum = 0;
+        double y_sum = 0;
+
+        // add n = bin_interval points' values together
+        for (int j = 0; j < bin_interval; ++j) {
+            cv::Point_<double> point = all_points[i + j];
+            x_sum += point.x;
+            y_sum += point.y;
+        }
+
+        // take the average
+        cv::Point_<double> ave_point(x_sum / bin_interval, y_sum / bin_interval);
+        // append the result to the destination
+        binned_points.emplace_back(ave_point);
+    }
+
+    // put the remaining n <= bin_interval points into the last bin
+    double x_sum = 0;
+    double y_sum = 0;
+    for (int i = binned_points.size() * bin_interval; i < all_points.size(); ++i) {
+        cv::Point_<double> point = all_points[i];
+        x_sum += point.x;
+        y_sum += point.y;
+    }
+    cv::Point_<double> ave_point(x_sum/bin_interval, y_sum/bin_interval);
+    binned_points.emplace_back(ave_point);
 
 }
 

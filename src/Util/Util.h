@@ -20,6 +20,17 @@
 #include <cstdlib>
 #include <complex>
 
+// this custom comparator is defined because Point_<double> does not have a comparator
+// comparator is needed for sorting point vectors
+struct point_comparator
+{
+    inline bool operator() (const cv::Point_<double>& p1, const cv::Point_<double>& p2)
+    {
+        // prioritize sorting by x
+        return (p1.x != p2.x) ? (p1.x < p2.x) : (p1.y < p2.y);
+    }
+};
+
 class Util {
 public:
     constexpr static const double k_red =  0.2125;
@@ -41,6 +52,8 @@ public:
     void splitChannels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum);
     void sobelOperator(const cv::Mat &src, cv::Mat &destination);
     void esf(cv::Mat &roi_src, cv::Mat &roi_edge, std::vector<cv::Point_<double>> &points_vector);
+
+    void performBinning(const std::vector<cv::Point_<double>> &all_points, std::vector<cv::Point_<double>> &binned_points, int bin_interval=4);
 
 private:
 
