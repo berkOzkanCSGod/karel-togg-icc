@@ -465,11 +465,11 @@ void Util::esf(cv::Mat &roiSrc, cv::Mat &roiEdge, std::vector<cv::Point_<double>
     sum2 = std::accumulate(rowLastval.begin(), rowLastval.end(), 0.0);
     avg2 = sum2/(double)rowLastval.size();
 
-
-    // based on:
+ // based on:
  //      y1-y0
  // m = --------
  //      x1-x0
+
     x0 = avg1;
     y0 = 0;
     x1 = avg2;

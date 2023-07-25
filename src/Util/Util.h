@@ -20,6 +20,8 @@
 #include <cstdlib>
 #include <complex>
 
+#include <libpq-fe.h>
+
 // this custom comparator is defined because Point_<double> does not have a comparator
 // comparator is needed for sorting point vectors
 struct point_comparator
@@ -55,6 +57,7 @@ public:
 
     void performBinning(const std::vector<cv::Point_<double>> &all_points, std::vector<cv::Point_<double>> &binned_points, int bin_interval=4);
 
+
 private:
 
     //helper to findBounds
@@ -78,8 +81,6 @@ public:
     //polynomial FFT
     void polynomialFFT(std::vector<float>& polynomial);
     void fft(std::vector<std::complex<double>>& values);
-
-
 
 
     std::string type2str(int type) {
