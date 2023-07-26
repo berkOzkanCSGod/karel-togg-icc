@@ -70,22 +70,29 @@ private:
     void findBottomCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsBottom);
     //constructs a porabola from smaple points (helper to findBounds)
     void findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int width);
-
+    void Util::findSystemOfEquationsSideways(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int height);
     //helper to findFocusPoints
     void findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv::Point>& POIs);
     void findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closestPoint);
-
 
     void findRightROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
     void findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
     void findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
     void findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
+
+
 public:
+    //takes in a sobel image
+    void findCornersOfChart(cv::Mat& image, std::vector<cv::Point> POIs);
+    void findLeftLine(cv::Mat image, std::vector<cv::Point>& leftPts);
+    void findRightLine(cv::Mat image, std::vector<cv::Point>& rightPts);
+
+    void MSE(cv::Mat img, cv::Mat original, double& nmse);
     //finding coefficients of the ETF
-    void deriveETF(std::vector<float>& coeff);
-    //polynomial FFT
-    void polynomialFFT(std::vector<float>& polynomial);
-    void fft(std::vector<std::complex<double>>& values);
+//    void deriveETF(std::vector<float>& coeff);
+//    //polynomial FFT
+//    void polynomialFFT(std::vector<float>& polynomial);
+//    void fft(std::vector<std::complex<double>>& values);
 
 
     std::string type2str(int type) {

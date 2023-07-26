@@ -95,6 +95,37 @@ void Util::findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std:
     }
 
 }
+void Util::findSystemOfEquationsSideways(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int height){
+
+    int n = curveSamplePoints.size();
+    cv::Mat A(n, 3, CV_32F);
+    cv::Mat B(n, 1, CV_32F);
+
+    for(int i = 0; i < n; ++i)
+    {
+        cv::Point pt = curveSamplePoints[i];
+        A.at<float>(i, 0) = pt.y * pt.y; // y^2
+        A.at<float>(i, 1) = pt.y;        // y
+        A.at<float>(i, 2) = 1;            // 1
+        B.at<float>(i) = pt.x;            // x
+    }
+
+    cv::Mat X;
+    cv::solve(A, B, X, cv::DECOMP_SVD);
+
+    float a = X.at<float>(0);
+    float b = X.at<float>(1);
+    float c = X.at<float>(2);
+
+    curve.clear();
+
+    for (int y = 0; y < height; ++y)
+    {
+        int x = cv::saturate_cast<int>(a * y * y + b * y + c);
+        cv::Point curr_point(x, y);
+        curve.push_back(curr_point);
+    }
+}
 
 //takes in a sobel image (black and white)
 void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
@@ -545,29 +576,74 @@ void Util::performBinning(const std::vector<cv::Point_<double>> &all_points, std
 
 }
 
+
+//takes in bgr image
+void Util::MSE(cv::Mat img, cv::Mat original, double& nmse){
+    if (img.size() != original.size() || img.type() != original.type()) {
+        std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
+        nmse = -1;
+        return;
+    }
+
+    // Convert images to floating-point type and normalize them to [0, 1]
+    img.convertTo(img, CV_32F);
+    original.convertTo(original, CV_32F);
+    img /= 255;
+    original /= 255;
+
+    // Calculate the difference between the two images
+    cv::Mat diff;
+    cv::absdiff(img, original, diff);
+
+    // Convert difference to grayscale if it is not already
+    if (diff.channels() > 1) {
+        cv::cvtColor(diff, diff, cv::COLOR_BGR2GRAY);
+    }
+
+    // Calculate sum of squared differences
+    double sum = diff.dot(diff);
+
+    // Calculate maximum possible MSE
+    double max_mse = img.size().area();
+
+    // Normalize sum by maximum possible MSE
+    nmse = sum / max_mse;
+
+    // More similar images will result in a score closer to 0.
+}
+
+
 //needs to test if images are same size
 void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& similarityScore){
-//
-//    if (newImg.size() != originalImg.size() || newImg.type() != originalImg.type()) {
-//        std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
-//        return;
-//    }
-//
-//    cv::Mat diff;
-//    double mse, max_mse, nmse;
-//
-//    cv::absdiff(newImg, originalImg, diff);
-//
-//    double sum = 0;
-//    for (int i = 0; i < diff.rows; ++i) {
-//        for(int j = 0; j < diff.cols; ++j){
-//            sum += (double)diff.at<uchar>(i,j)/255;
-//            std::cout << (double)diff.at<uchar>(i,j)/255 << "\n";
-//        }
-//    }
-//
-//    similarityScore = (sum / (diff.rows*diff.cols));
-//
+    if (newImg.size() != originalImg.size() || newImg.type() != originalImg.type()) {
+        std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
+        return;
+    }
+
+    //16 by 9 aspect ratio
+//    int width = newImg.cols/10;
+//    int height = newImg.rows/10;
+    int width = 16;
+    int height = 9;
+
+    double mse = 0;
+
+    for (int i = 0; i < newImg.cols; i += width) {
+        for (int j = 0; j < newImg.rows; j += height) {
+            mse = 0;
+            cv::Rect roi(i,j,width,height);
+            cv::Mat img = newImg(roi);
+            cv::Mat og = originalImg(roi);
+            MSE(img, og, mse);
+            std::cout << mse << "\n";
+            cv::rectangle(newImg,roi,cv::Scalar(0,50,100),1);
+        }
+    }
+
+
+    cv::imshow("dr", newImg);
+    cv::waitKey(0);
+    int a = 0;
 ////    diff.convertTo(diff, CV_32F);
 ////    mse = cv::norm(diff, cv::NORM_L2SQR) / (diff.rows * diff.cols);
 ////    max_mse = 255.0 * 255.0;
@@ -600,4 +676,61 @@ void Util::getMeanColourCIELAB(const cv::Mat &image, cv::Rect &roi, cv::Scalar &
 
     // Extract the individual LAB components from the converted Mat
     mean = labMat.at<cv::Scalar>(0, 0);
+}
+
+
+
+void Util::findCornersOfChart(cv::Mat& image, std::vector<cv::Point> POIs){
+    cv::Mat threshImg, grayImg;
+    cv::Mat img;
+    std::vector<cv::Point> leftPts, rightPts;
+    std::vector<cv::Point> leftLine, rightLine;
+
+    if (image.type() != CV_8UC1){
+        cv::cvtColor(image,img, CV_8UC1);
+    } else {
+        img = image;
+    }
+
+
+    cv::threshold(img, threshImg, 80, 255, cv::THRESH_BINARY);
+    cv::cvtColor(threshImg, grayImg, cv::COLOR_BGR2GRAY);
+
+    std::thread checkingLeft(&Util::findLeftLine, this, grayImg, std::ref(leftPts));
+    std::thread checkingRight(&Util::findRightLine, this, grayImg, std::ref(rightPts));
+    checkingRight.join();
+    checkingLeft.join();
+
+    cv::cvtColor(grayImg, grayImg, cv::COLOR_GRAY2BGR);
+
+    findSystemOfEquationsSideways(leftPts, leftLine, grayImg.rows);
+    findSystemOfEquationsSideways(rightPts, rightLine, grayImg.rows);
+
+}
+
+void Util::findLeftLine(cv::Mat image, std::vector<cv::Point>& leftPts){
+    for (int y = 1; y < image.rows; y += 30) {
+        for (int x = 1; x < image.cols/5; x += 1) {
+
+            uchar pixel = image.at<uchar>(y,x);
+
+            if ((double)pixel != 0) {
+                leftPts.push_back(cv::Point(x,y));
+                break;
+            }
+        }
+    }
+}
+void Util::findRightLine(cv::Mat image, std::vector<cv::Point>& rightPts){
+    for (int y = 1; y < image.rows; y += 30) {
+        for (int x = image.cols-1; x > image.cols - image.cols/5; x -= 1) {
+
+            uchar pixel = image.at<uchar>(y,x);
+
+            if ((double)pixel != 0) {
+                rightPts.push_back(cv::Point(x,y));
+                break;
+            }
+        }
+    }
 }
