@@ -175,17 +175,6 @@ void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
 
     findCorners(stats, centerOfChart, POIs);
 
-//    cv::cvtColor(thresholdImg, thresholdImg, cv::COLOR_GRAY2BGR);
-//
-//    for(int i = 1; i < numOfComponents; i++)
-//    {
-//        cv::Point center(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
-//        cv::circle(thresholdImg, center, 3, cv::Scalar(0, 0, 255), -1);
-//    }
-//    cv::imshow("final", thresholdImg);
-//    cv::waitKey(0);
-
-
 }
 //takes in a matrix of stats produced by "connectedComponentsWithStats" and center of chart
 void Util::findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closestPoint) {
@@ -614,7 +603,7 @@ void Util::MSE(cv::Mat img, cv::Mat original, double& nmse){
 
 
 //needs to test if images are same size
-void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& similarityScore){
+void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& threshold, double& similarityScore){
     if (newImg.size() != originalImg.size() || newImg.type() != originalImg.type()) {
         std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
         return;
@@ -625,8 +614,9 @@ void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& simila
 //    int height = newImg.rows/10;
     int width = 16;
     int height = 9;
-
+    int count = newImg.size().area() / (width * height);
     double mse = 0;
+    double sum = 0;
 
     for (int i = 0; i < newImg.cols; i += width) {
         for (int j = 0; j < newImg.rows; j += height) {
@@ -635,20 +625,16 @@ void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& simila
             cv::Mat img = newImg(roi);
             cv::Mat og = originalImg(roi);
             MSE(img, og, mse);
-            std::cout << mse << "\n";
-            cv::rectangle(newImg,roi,cv::Scalar(0,50,100),1);
+
+            if (mse < threshold)
+                mse = 0;
+            sum += mse;
+//            cv::rectangle(newImg,roi,cv::Scalar(0,50,100),1);
         }
     }
 
+    similarityScore = sum / count;
 
-    cv::imshow("dr", newImg);
-    cv::waitKey(0);
-    int a = 0;
-////    diff.convertTo(diff, CV_32F);
-////    mse = cv::norm(diff, cv::NORM_L2SQR) / (diff.rows * diff.cols);
-////    max_mse = 255.0 * 255.0;
-////    nmse = mse / max_mse;
-////    similarityScore = 1 - nmse;
 }
 
 
