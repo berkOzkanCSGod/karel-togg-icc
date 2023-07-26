@@ -375,7 +375,7 @@ void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
  */
 void Util::splitChannels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum) {
     cv::Mat channels[3];
-    split(src, channels);
+    cv::split(src, channels);
     blue = channels[0];
     green = channels[1];
     red = channels[2];
@@ -545,3 +545,32 @@ void Util::performBinning(const std::vector<cv::Point_<double>> &all_points, std
 
 }
 
+//needs to test if images are same size
+void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& similarityScore){
+//
+//    if (newImg.size() != originalImg.size() || newImg.type() != originalImg.type()) {
+//        std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
+//        return;
+//    }
+//
+//    cv::Mat diff;
+//    double mse, max_mse, nmse;
+//
+//    cv::absdiff(newImg, originalImg, diff);
+//
+//    double sum = 0;
+//    for (int i = 0; i < diff.rows; ++i) {
+//        for(int j = 0; j < diff.cols; ++j){
+//            sum += (double)diff.at<uchar>(i,j)/255;
+//            std::cout << (double)diff.at<uchar>(i,j)/255 << "\n";
+//        }
+//    }
+//
+//    similarityScore = (sum / (diff.rows*diff.cols));
+//
+////    diff.convertTo(diff, CV_32F);
+////    mse = cv::norm(diff, cv::NORM_L2SQR) / (diff.rows * diff.cols);
+////    max_mse = 255.0 * 255.0;
+////    nmse = mse / max_mse;
+////    similarityScore = 1 - nmse;
+}

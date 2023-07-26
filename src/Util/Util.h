@@ -57,6 +57,7 @@ public:
 
     void performBinning(const std::vector<cv::Point_<double>> &all_points, std::vector<cv::Point_<double>> &binned_points, int bin_interval=4);
 
+    void imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& similarityScore);
 
 private:
 
