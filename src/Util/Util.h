@@ -59,6 +59,10 @@ public:
 
     void imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& similarityScore);
 
+    double getDeltaE(cv::Scalar &pixel1, cv::Scalar &pixel2);
+
+    void getMeanColourCIELAB(const cv::Mat &image, cv::Rect &roi, cv::Scalar &mean);
+
 private:
 
     //helper to findBounds

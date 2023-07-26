@@ -574,3 +574,30 @@ void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& simila
 ////    nmse = mse / max_mse;
 ////    similarityScore = 1 - nmse;
 }
+
+
+// finds getDeltaE value from two pixels in CIELAB colour space with the formula:
+// getDeltaE = sqrt((L1-L2)^2 + (a1-a2)^2 + (b1-b2)^2)
+double Util::getDeltaE(cv::Scalar &pixel1, cv::Scalar &pixel2) {
+    return cv::norm(pixel1 - pixel2);
+}
+
+
+// Takes an image in BGR colour space and finds the mean colours in CIELAB colour space
+void Util::getMeanColourCIELAB(const cv::Mat &image, cv::Rect &roi, cv::Scalar &mean) {
+    // Extract the region of interest (ROI) from the image
+    cv::Mat roiImage = image(roi);
+
+    // Calculate the mean colour in BGR colour space
+    cv::Scalar meanColour = cv::mean(roiImage);
+
+    // Create a 1x1 BGR cv::Mat from the mean colour
+    cv::Mat bgrMat(1, 1, CV_64FC3, meanColour);
+
+    // Convert the mean color from BGR to CIELAB
+    cv::Mat labMat;
+    cv::cvtColor(bgrMat, labMat, cv::COLOR_BGR2Lab);
+
+    // Extract the individual LAB components from the converted Mat
+    mean = labMat.at<cv::Scalar>(0, 0);
+}
