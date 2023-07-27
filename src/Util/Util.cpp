@@ -9,7 +9,22 @@ Util::Util(cv::Mat& image){
     globalImage = image;
 }
 
-//takes in a sobel image. If input it hsv channel #2 can be sent
+/*
+ * takes in a one channel sobel image. If input it hsv channel #2 can be sent
+ *
+ * This method finds the upper and lower bounds of an SFR Plus chart using the black
+ * guidelines in the top and bottom. The principle is simple, on a sobel image, starting from the left side
+ * of the image a "vector" is shot downwards until it it encounteres a white pixel. Once a white pixel is detected
+ * the cv::Point is saved into a std::vector<cv::Point> and the process is repeated for every Xth column. The same process,
+ * but in reverse is done at the bottom.
+ *
+ * The vector points are then sent to the "findSystemOfEquations" function–where curve fitting is done
+ * to get a parabola from the sample points.
+ *
+ * This method was developed using a fisheye SFR Plus chart so, it could aslo work on a flat image, however,
+ * that is needs to be tested.
+ */
+
 void Util::findBounds(cv::Mat image, std::vector<cv::Point>& topCurve, std::vector<cv::Point>& bottomCurve){
 
     cv::Mat gaussianBlurImage;
@@ -31,7 +46,10 @@ void Util::findBounds(cv::Mat image, std::vector<cv::Point>& topCurve, std::vect
     findSystemOfEquations(bottomCurveSamplePoints, bottomCurve, image.cols);
 
 }
-//takes in thresh binary image
+/*
+ * Takes in a one channel binary image and vector of cv::Points
+ * This method is used in "findBounds" method where it used to find sample points of the SFR Plus chart's top black bar.
+ */
 void Util::findTopCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsTop){
     for (int x = 0; x < image.cols; x += 55) {
         for (int y = 0; y < image.rows/5; y += 1) {
@@ -46,7 +64,11 @@ void Util::findTopCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& sample
         }
     }
 }
-//takes in thresh binary image
+
+/*
+ * Takes in a one channel binary image and vector of cv::Points
+ * This method is the exact same as "findTopCurveSamplePoint" but it looks for the bottom black bar instead.
+ */
 void Util::findBottomCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsBottom){
     for (int x = 0; x < image.cols; x += 35) {
         for (int y = image.rows-1; y > image.rows-image.rows/5; y -= 1) {
@@ -62,7 +84,10 @@ void Util::findBottomCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& sam
         }
     }
 }
-//takes in two vectors of points
+
+/*
+ * Finds a system of equations from a vector of points AKA does curve fitting to get a parabola.
+ */
 void Util::findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int width){
 
     int n = curveSamplePoints.size();
@@ -95,6 +120,9 @@ void Util::findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std:
     }
 
 }
+/*
+ * Same as "findSystemOfEquations" but flips x and y to find vertical parabolas (used to find left and right bounds of chart)
+ */
 void Util::findSystemOfEquationsSideways(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int height){
 
     int n = curveSamplePoints.size();
@@ -127,7 +155,11 @@ void Util::findSystemOfEquationsSideways(std::vector<cv::Point>& curveSamplePoin
     }
 }
 
-//takes in a sobel image (black and white)
+/*
+ * Takes in a sobel image
+ * This method finds all checkerboard circles inside the SFR Plus rectangles using template matching.
+ * The target is hard coded so, some issues may arise in the future.
+ */
 void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
     cv::Mat patternMatchedImg;
     cv::Mat thresholdImg;
@@ -176,7 +208,14 @@ void Util::findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs){
     findCorners(stats, centerOfChart, POIs);
 
 }
-//takes in a matrix of stats produced by "connectedComponentsWithStats" and center of chart
+/*
+ * Takes in a matrix of stats produced by "connectedComponentsWithStats" and center of chart
+ *
+ * This method is used to find the center of the chart.
+ * First, the midpoint of the top and bottom parabolas found using "findBounds" is used to locate chart center line.
+ * Then, the midpoint between parabola centers is found in order to get the predicted center of chart.
+ * Finally, the closes point found using "findFocusPoints" is determined to be the center.
+ */
 void Util::findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closestPoint) {
 
     float minDist = -1;
@@ -203,6 +242,11 @@ void Util::findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closes
     closestPoint.x+=32;
     closestPoint.y+=30;
 }
+
+/*
+ * Takes in "stats" produced by "connectedComponentsWithStats."
+ * Finds the points with the furthest distance from center and determines them to be corner circles of the SFR Plus chart.
+ */
 void Util::findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv::Point>& POIs) {
 
     std::vector<cv::Point> allPoints;
@@ -234,11 +278,18 @@ void Util::findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv:
     for(auto& p : POIs){
         cv::circle(globalImage, p, 10, cv::Scalar(12,100,50),1);
     }
-//    cv::imshow("global", globalImage);
-//    cv::waitKey(0);
+
 }
 
-//takes in sobel image
+/* takes in sobel image
+ * From each POI, that is found using "findCorners" and finding center, a "vector" is shot in top, bottom, left, and right,
+ * until they hit a white pixel, which coresponds with the edge of the slanted square. Then a rectangle is identified for
+ * each corner of each POI.
+ *
+ * The "vectors" are shot slightly away from the center to avoid getting a false positive by running into the white
+ * pixels of the checkerboard circles at the center of the slanted rectangle.
+ *
+ */
 void Util::findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<std::vector<cv::Rect>>& ROIs){
     int ROIwidth = 10;
     int ROIheight = 20;
@@ -285,7 +336,11 @@ void Util::findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<
         tempRectList.clear();
     }
 }
+
 //takes in sobel img
+/*
+ * Used in "findROIofPOI" to shoot a "vector" towards the right.
+ */
 void Util::findRightROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     bool boundHit = false;
     cv::Point initial(start);
@@ -311,6 +366,9 @@ void Util::findRightROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     ROI.x = start.x;
     ROI.y = start.y;
 }
+/*
+ * Same as "findROIofPOI" but towards top.
+ */
 void Util::findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     bool boundHit = false;
     cv::Point initial(start);
@@ -337,6 +395,9 @@ void Util::findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     ROI.x = start.x;
     ROI.y = start.y;
 }
+/*
+ * Same as "findROIofPOI" but towards left.
+ */
 void Util::findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     bool boundHit = false;
     cv::Point initial(start);
@@ -363,6 +424,9 @@ void Util::findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     ROI.x = start.x;
     ROI.y = start.y;
 }
+/*
+ * Same as "findROIofPOI" but towards bottom.
+ */
 void Util::findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI){
     bool boundHit = false;
     cv::Point initial(start);
@@ -567,6 +631,10 @@ void Util::performBinning(const std::vector<cv::Point_<double>> &all_points, std
 
 
 //takes in bgr image
+/*
+ * Calculates the similarity score of two images.
+ * MSE name is miss leading because the method no longer uses mean square error.
+ */
 void Util::MSE(cv::Mat img, cv::Mat original, double& nmse){
     if (img.size() != original.size() || img.type() != original.type()) {
         std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
@@ -603,6 +671,9 @@ void Util::MSE(cv::Mat img, cv::Mat original, double& nmse){
 
 
 //needs to test if images are same size
+/*
+ * Breaks up images into smaller segments are tests for similarity.
+ */
 void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& threshold, double& similarityScore){
     if (newImg.size() != originalImg.size() || newImg.type() != originalImg.type()) {
         std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
@@ -665,7 +736,12 @@ void Util::getMeanColourCIELAB(const cv::Mat &image, cv::Rect &roi, cv::Scalar &
 }
 
 
-
+/*
+ * This method is similar to "findBounds," however, this was added later in the development so the name
+ * is not so original and confusing.
+ * The principal is the same as the afformentioned method but it checks for side bounds.
+ * By getting the intersection of top,bottom,left, and right lines all four corners of the chart can be found.
+ */
 void Util::findCornersOfChart(cv::Mat& image, std::vector<cv::Point> POIs){
     cv::Mat threshImg, grayImg;
     cv::Mat img;
@@ -692,8 +768,12 @@ void Util::findCornersOfChart(cv::Mat& image, std::vector<cv::Point> POIs){
     findSystemOfEquationsSideways(leftPts, leftLine, grayImg.rows);
     findSystemOfEquationsSideways(rightPts, rightLine, grayImg.rows);
 
-}
+    //find intersection with top and bottom here, and fill up POIs.
 
+}
+/*
+ * Used in "findCornersOfChart."
+ */
 void Util::findLeftLine(cv::Mat image, std::vector<cv::Point>& leftPts){
     for (int y = 1; y < image.rows; y += 30) {
         for (int x = 1; x < image.cols/5; x += 1) {
@@ -707,6 +787,9 @@ void Util::findLeftLine(cv::Mat image, std::vector<cv::Point>& leftPts){
         }
     }
 }
+/*
+ * Using in "findCornersOfChart."
+ */
 void Util::findRightLine(cv::Mat image, std::vector<cv::Point>& rightPts){
     for (int y = 1; y < image.rows; y += 30) {
         for (int x = image.cols-1; x > image.cols - image.cols/5; x -= 1) {
