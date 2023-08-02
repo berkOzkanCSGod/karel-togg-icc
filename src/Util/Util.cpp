@@ -467,7 +467,7 @@ void Util::splitChannels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::M
 }
 
 /*
- * Takes in a gray scale src image and outputs an hsv image (destination)
+ * Takes in a grayscale src image and outputs a hsv image (destination)
  */
 void Util::sobelOperator(const cv::Mat &src, cv::Mat &destination) {
 
@@ -487,7 +487,7 @@ void Util::sobelOperator(const cv::Mat &src, cv::Mat &destination) {
     cv::filter2D(src, resVal, CV_64F, kernelVal);
     cv::magnitude(resHue, resVal, destination); //calculates 2d vector magnitude
 
-    //destination is gray scale
+    //destination is grayscale
     cv::normalize(destination, destination, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
     direction = cv::Mat(destination.size(), CV_64FC1);
@@ -497,18 +497,23 @@ void Util::sobelOperator(const cv::Mat &src, cv::Mat &destination) {
         }
     }
 
-    //direction is gray scale
+    //direction is grayscale
     cv::normalize(direction, direction, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
-    channels[0] = direction; //gray scale
+    channels[0] = direction; //grayscale
     channels[1] = cv::Mat(destination.size(), CV_8UC1, cv::Scalar(255)); //completely white grayscale
-    channels[2] = destination; //gray scale
+    channels[2] = destination; //grayscale
 
     cv::merge(channels, destination);
 }
 
-// roi_src is expected to be grayscale
-// roi_edge is expected to be HSV. H represents the edge angel, S is constant and V represents edge amplitude
+/**
+ * calculates the Edge Spread Function of a ROI based on the slant-edge method
+ * @param roiSrc grayscale Matrix of the ROI
+ * @param roiEdge HSV Matrix of the ROI, taken from the output of sobelOperator. H represents the edge angle,
+ *                S is constant and V represents edge amplitude
+ * @param pointsVector the output of the method. These points are to be binned and then curve-fitted
+ */
 void Util::esf(cv::Mat &roiSrc, cv::Mat &roiEdge, std::vector<cv::Point_<double>> &pointsVector) {
     std::vector<cv::Mat> channels;
     cv::Mat roiHue;
@@ -517,21 +522,19 @@ void Util::esf(cv::Mat &roiSrc, cv::Mat &roiEdge, std::vector<cv::Point_<double>
     std::vector<int> row1val;
     std::vector<int> rowLastval;
     double sum1, sum2, avg1, avg2, slope;
-    double x0,y0,x1,y1;
-
-
+    double x0, y0, x1, y1;
 
     if (roiEdge.type() != CV_8UC3) {
         std::cout << "Invalid ROI Matrix type!" << std::endl;
         return;
     }
 
-
     split(roiEdge, channels);
     roiHue = channels[0];
     roiVal = channels[2];
     cv::threshold(roiVal, threshROI, 100, 255, cv::THRESH_BINARY);
 
+    //-------------------CALCULATE SLOPE-----------------
     //first row
     for (int i = 0; i < threshROI.cols; ++i) {
         if (threshROI.at<uchar>(0,i) != 0){
@@ -558,30 +561,29 @@ void Util::esf(cv::Mat &roiSrc, cv::Mat &roiEdge, std::vector<cv::Point_<double>
     y0 = 0;
     x1 = avg2;
     y1 = threshROI.rows;
-    slope = (-(y0-y1))/(x0-x1); //negative because rows are counted downwards
+    slope = (-(y0 - y1)) / (x0 - x1); //negative because rows are counted downwards
+    std::cout << "slope: " << slope << std::endl;
+    double slopeSq = slope * slope;
+
+    //---------------VISUALISE THE EDGE LINE FOR TESTING----------------
+//    cv::cvtColor(roiEdge, roiEdge, cv::COLOR_HSV2BGR);
+//    cv::line(roiEdge, cv::Point(x0, y0), cv::Point(x1, y1), cv::Scalar(255, 0, 255));
+//    int newWidth = roiEdge.size().width * 20;
+//    int newHeight = roiEdge.size().height * 20;
+//    cv::resize(roiEdge, roiEdge, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_NEAREST);
+//    cv::imshow("edge", roiEdge);
+//    cv::waitKey(0);
+
+    //-------------------PROJECT ON LINE-----------------
     for (int yA = 0; yA < roiHue.rows; yA++) {
         for (int xA = 0; xA < roiHue.cols; xA++) {
-            double x = (double) xA - ((double) yA / atan(slope));
+            double x = (double) (slopeSq * xA - slope * yA)/(1 + slopeSq);
                 pointsVector.emplace_back(cv::Point_<double>(x, roiSrc.at<uchar>(yA, xA)));
         }
     }
 
     // sort the points according to x values to prepare for binning with a custom comparator
     std::sort(pointsVector.begin(), pointsVector.end(), point_comparator());
-
-//    std::unordered_map<double, double> points_map;
-//    for (int yA = 0; yA < roi_hue.rows; yA++) {
-//        for (int xA = 0; xA < roi_hue.cols; xA++) {
-//            double x = (double) xA - ((double) yA / atan(slope));
-//            if (pointsMap.find(x) == points_map.end()) {
-//                points_map[x] = roiSrc.at<uchar>(yA, xA);
-//            }
-//        }
-//    }
-
-//        for (auto pt: points_map) {
-//            pointsVector.emplace_back(pt.first, pt.second);
-//        }
 
 }
 
@@ -633,7 +635,7 @@ void Util::performBinning(const std::vector<cv::Point_<double>> &all_points, std
 //takes in bgr image
 /*
  * Calculates the similarity score of two images.
- * MSE name is miss leading because the method no longer uses mean square error.
+ * More similar images will result in a score closer to 0.
  */
 void Util::MSE(cv::Mat img, cv::Mat original, double& nmse){
     if (img.size() != original.size() || img.type() != original.type()) {
@@ -665,16 +667,16 @@ void Util::MSE(cv::Mat img, cv::Mat original, double& nmse){
 
     // Normalize sum by maximum possible MSE
     nmse = sum / max_mse;
-
-    // More similar images will result in a score closer to 0.
 }
 
 
 //needs to test if images are same size
 /*
- * Breaks up images into smaller segments are tests for similarity.
+ * Breaks up images into smaller segments are tests for difference.
+ * More similar images will result in a score closer to 0.
+ * Completely different images will result in a score closer to 1.
  */
-void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& threshold, double& similarityScore){
+void Util::imageDifference(cv::Mat& newImg, cv::Mat& originalImg, double threshold, double& similarityScore){
     if (newImg.size() != originalImg.size() || newImg.type() != originalImg.type()) {
         std::cout << "The images have different sizes or types. Cannot calculate similarity." << std::endl;
         return;
@@ -708,10 +710,37 @@ void Util::imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& thresh
 
 }
 
+/**
+ * Calculates the Delta E value by averaging the Delta E values of small chunks.
+ * This operation is done by comparing the mean colours of each chunk of the source image
+ * and the reference in CIELAB colour space
+ * @param img the image to be processed
+ * @param ref the reference image with correct colour depth
+ * @return the average delta E value (range 0-100, 0 is better)
+ */
+double Util::getDeltaE(cv::Mat &img, cv::Mat &ref) {
+    double deltaESum = 0;
+    int deltaECount = 0;
+    for (int y = 0; y < img.rows - 9; y += 9 ) {
+        for (int x = 0; x < img.cols - 16; x += 16) {
+            cv::Rect roi(x, y, 16, 9);
+            cv::Scalar imageLab;
+            cv::Scalar referenceLab;
+            getMeanColourCIELAB(img, roi, imageLab);
+            getMeanColourCIELAB(ref, roi, referenceLab);
+            deltaESum += localDeltaE(imageLab, referenceLab);
+            deltaECount++;
+        }
+    }
+    double deltaEAve = deltaESum / deltaECount;
+    deltaEAve *= 100.0/255;
+    return deltaEAve;
+}
+
 
 // finds getDeltaE value from two pixels in CIELAB colour space with the formula:
 // getDeltaE = sqrt((L1-L2)^2 + (a1-a2)^2 + (b1-b2)^2)
-double Util::getDeltaE(cv::Scalar &pixel1, cv::Scalar &pixel2) {
+double Util::localDeltaE(cv::Scalar &pixel1, cv::Scalar &pixel2) {
     return cv::norm(pixel1 - pixel2);
 }
 
@@ -725,21 +754,24 @@ void Util::getMeanColourCIELAB(const cv::Mat &image, cv::Rect &roi, cv::Scalar &
     cv::Scalar meanColour = cv::mean(roiImage);
 
     // Create a 1x1 BGR cv::Mat from the mean colour
-    cv::Mat bgrMat(1, 1, CV_64FC3, meanColour);
+    cv::Mat bgrMat(1, 1, CV_8UC3, meanColour);
 
     // Convert the mean color from BGR to CIELAB
     cv::Mat labMat;
     cv::cvtColor(bgrMat, labMat, cv::COLOR_BGR2Lab);
 
     // Extract the individual LAB components from the converted Mat
-    mean = labMat.at<cv::Scalar>(0, 0);
+    cv::Vec3b labColor = labMat.at<cv::Vec3b>(0, 0);
+
+    // Convert the LAB components to double and store them in 'mean'
+    mean = cv::Vec3d(labColor[0], labColor[1], labColor[2]);
 }
 
 
 /*
  * This method is similar to "findBounds," however, this was added later in the development so the name
  * is not so original and confusing.
- * The principal is the same as the afformentioned method but it checks for side bounds.
+ * The principal is the same as the aforementioned method but it checks for side bounds.
  * By getting the intersection of top,bottom,left, and right lines all four corners of the chart can be found.
  */
 void Util::findCornersOfChart(cv::Mat& image, std::vector<cv::Point> POIs){

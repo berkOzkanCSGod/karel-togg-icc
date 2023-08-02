@@ -46,42 +46,31 @@ public:
 
     //finds the five points of interest (requires sobel image)
     void findBounds(cv::Mat image, std::vector<cv::Point>& topCurve, std::vector<cv::Point>& bottomCurve);
-    //finds the top and bottom curves
-    void findFocusPoints(cv::Mat image, std::vector<cv::Point>& POIs);
-    //finds all ROI from POIs
-    void findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<std::vector<cv::Rect>>& ROIs);
 
+    //finds the top and bottom curves
+    void findFocusPoints(cv::Mat image, std::vector<cv::Point> &POIs);
+
+    //finds all ROI from POIs
+    void findROIofPOI(cv::Mat image, std::vector<cv::Point> POIs, std::vector<std::vector<cv::Rect>> &ROIs);
+
+    // splits a BGR image into 4 channels: RED, GREEN, BLUE, LUMINANCE
     void splitChannels(const cv::Mat &src, cv::Mat &red, cv::Mat &green, cv::Mat &blue, cv::Mat &lum);
+
+    // applies a basic sobel operator on a grayscale image for edge detection with directions
     void sobelOperator(const cv::Mat &src, cv::Mat &destination);
+
+    // calculates the Edge Spread Function of a ROI
     void esf(cv::Mat &roi_src, cv::Mat &roi_edge, std::vector<cv::Point_<double>> &points_vector);
 
+    // performs binning to reduce noise on ESF to prepare for curve fitting
     void performBinning(const std::vector<cv::Point_<double>> &all_points, std::vector<cv::Point_<double>> &binned_points, int bin_interval=4);
 
-    void imageSimilarity(cv::Mat& newImg, cv::Mat& originalImg, double& threshold, double& similarityScore);
+    void imageDifference(cv::Mat& newImg, cv::Mat& originalImg, double threshold, double& similarityScore);
 
-    double getDeltaE(cv::Scalar &pixel1, cv::Scalar &pixel2);
+    double getDeltaE(cv::Mat &img, cv::Mat &ref);
 
     void getMeanColourCIELAB(const cv::Mat &image, cv::Rect &roi, cv::Scalar &mean);
 
-private:
-
-    //helper to findBounds
-    void findTopCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsTop);
-    void findBottomCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsBottom);
-    //constructs a porabola from smaple points (helper to findBounds)
-    void findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int width);
-    void Util::findSystemOfEquationsSideways(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int height);
-    //helper to findFocusPoints
-    void findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv::Point>& POIs);
-    void findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closestPoint);
-
-    void findRightROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
-    void findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
-    void findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
-    void findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
-
-
-public:
     //takes in a sobel image
     void findCornersOfChart(cv::Mat& image, std::vector<cv::Point> POIs);
     void findLeftLine(cv::Mat image, std::vector<cv::Point>& leftPts);
@@ -117,6 +106,25 @@ public:
 
         return r;
     }
+
+private:
+
+    //helper to findBounds
+    void findTopCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsTop);
+    void findBottomCurveSamplePoint(cv::Mat image, std::vector<cv::Point>& samplePointsBottom);
+    //constructs a porabola from smaple points (helper to findBounds)
+    void findSystemOfEquations(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int width);
+    void Util::findSystemOfEquationsSideways(std::vector<cv::Point>& curveSamplePoints, std::vector<cv::Point>& curve, int height);
+    //helper to findFocusPoints
+    void findCorners(cv::Mat& stats, cv::Point& centerOfChart, std::vector<cv::Point>& POIs);
+    void findClosestPoint(cv::Mat& stats, cv::Point& center, cv::Point& closestPoint);
+
+    void findRightROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
+    void findTopROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
+    void findLeftROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
+    void findBottomROI(cv::Mat image, cv::Point start, cv::Rect& ROI);
+
+    double localDeltaE(cv::Scalar &pixel1, cv::Scalar &pixel2);
 
 };
 
